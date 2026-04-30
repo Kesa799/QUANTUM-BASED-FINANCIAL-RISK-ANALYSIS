@@ -1,0 +1,7 @@
+flask
+mysql-connector-python
+pandas
+yfinance
+qiskit
+gunicorn 
+qiskit-aer

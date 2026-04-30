@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Quantum Analysis Result</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- PDF Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+</head>
+
+<body>
+
+<div class="result-container">
+
+    <!-- RISK METER -->
+    <div class="card">
+        <h2 style="text-align:center; color: #58a6ff;">Quantum Risk Analysis</h2>
+
+        <div class="gauge-wrapper">
+            <div class="marker m-0">0%</div>
+            <div class="marker m-25">25%</div>
+            <div class="marker m-50">50%</div>
+            <div class="marker m-75">75%</div>
+            <div class="marker m-100">100%</div>
+
+            <div class="gauge">
+                <div id="needle" class="needle"></div>
+            </div>
+        </div>
+
+        <p class="risk-text">
+            Risk Probability: <b style="color: #58a6ff;">{{ risk }}%</b>
+        </p>
+    </div>
+
+    <!-- METRICS -->
+    <div class="card">
+        <h3>Market Data: {{ stock }}</h3>
+        <div class="metrics">
+            <div class="metric-box">Expected Return:<br><strong>{{ expected_return }}%</strong></div>
+            <div class="metric-box">Annual Volatility:<br><strong>{{ volatility }}%</strong></div>
+            <div class="metric-box">VaR (95%):<br><strong>{{ VaR }}%</strong></div>
+            <div class="metric-box">Status:<br><strong id="status-display">{{ status }}</strong></div>
+        </div>
+    </div>
+
+    <!-- GRAPH -->
+    <div class="card">
+        <h3>Price History (1 Year)</h3>
+        <canvas id="stockChart"></canvas>
+    </div>
+
+    <!-- DOWNLOAD BUTTON -->
+    <button onclick="downloadPDF()" class="analyze-btn">
+        Download as PDF
+    </button>
+
+    <!-- BACK -->
+    <form action="/">
+        <button class="analyze-btn">Back to Dashboard</button>
+    </form>
+
+</div>
+
+<script>
+    // -------- CHART --------
+    const ctx = document.getElementById('stockChart').getContext('2d');
+
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: {{ dates | tojson }},
+            datasets: [{
+                label: 'Price',
+                data: {{ prices | tojson }},
+                borderColor: '#58a6ff',
+                tension: 0.2,
+                fill: false
+            }]
+        },
+        options: {
+            animation: {
+                duration: 1000
+            },
+            plugins: { legend: { display: false } }
+        }
+    });
+
+    // -------- GAUGE --------
+    const riskVal = parseFloat("{{ risk }}");
+    const angle = 90 - (riskVal / 100 * 180);
+
+    setTimeout(() => {
+        const needle = document.getElementById("needle");
+        needle.style.transform = `rotate(${angle}deg)`;
+
+        const statusEl = document.getElementById("status-display");
+        const status = "{{ status }}";
+
+        if (status === "Low Risk") statusEl.style.color = "#2ecc71";
+        else if (status === "Moderate Risk") statusEl.style.color = "#f1c40f";
+        else if (status === "High Risk") statusEl.style.color = "#e67e22";
+        else statusEl.style.color = "#e74c3c";
+
+    }, 500);
+
+    // -------- PDF DOWNLOAD --------
+    async function downloadPDF() {
+
+        const { jsPDF } = window.jspdf;
+
+        const element = document.querySelector(".result-container");
+
+        // Wait for rendering
+        await new Promise(resolve => setTimeout(resolve, 1200));
+
+        const canvas = await html2canvas(element, {
+            scale: 2,
+            useCORS: true,
+            backgroundColor: "#0d1117"
+        });
+
+        const imgData = canvas.toDataURL("image/png");
+
+        const pdf = new jsPDF('p', 'mm', 'a4');
+
+        const imgWidth = 210;
+        const pageHeight = 295;
+        const imgHeight = canvas.height * imgWidth / canvas.width;
+
+        let heightLeft = imgHeight;
+        let position = 0;
+
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+
+        // Multi-page handling
+        while (heightLeft > 0) {
+            position = heightLeft - imgHeight;
+            pdf.addPage();
+            pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+            heightLeft -= pageHeight;
+        }
+
+        pdf.save("Quantum_Risk_Report.pdf");
+    }
+</script>
+
+</body>
+</html>
